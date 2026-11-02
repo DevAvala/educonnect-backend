@@ -32,10 +32,12 @@ const handleValidationErrors = (req, res, next) => {
  */
 const validateLogin = [
   body('email')
+    .trim()
     .isEmail()
     .withMessage('Valid email address is required')
-    .normalizeEmail()
-    .trim(),
+    // This account is configured by its complete address. Provider-specific
+    // normalization would silently remove dots or aliases before comparison.
+    .toLowerCase(),
   
   body('password')
     .isLength({ min: 8 })

@@ -7,6 +7,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
+const { AppError } = require('../utils/AppError');
+
+const normalizeAdminEmail = (email) => String(email || '').trim().toLowerCase();
 
 /**
  * Validate system admin credentials against environment variables
@@ -23,7 +26,7 @@ const validateSystemAdminCredentials = async (email, password) => {
     }
 
     // Validate email
-    if (email !== process.env.SYSTEM_ADMIN_EMAIL) {
+    if (normalizeAdminEmail(email) !== normalizeAdminEmail(process.env.SYSTEM_ADMIN_EMAIL)) {
       return false;
     }
 
@@ -33,7 +36,7 @@ const validateSystemAdminCredentials = async (email, password) => {
 
   } catch (error) {
     logger.error('Error validating system admin credentials:', error);
-    return false;
+    throw new AppError('System admin sign-in is temporarily unavailable', 503, 'SYSTEM_ADMIN_AUTH_UNAVAILABLE');
   }
 };
 
@@ -88,15 +91,25 @@ const verifySystemAdminToken = (token) => {
  * @returns {Promise<Object>} - Login result with token and user info
  */
 const loginSystemAdmin = async (email, password) => {
+  if (!isSystemAdminConfigured()) {
+    throw new AppError('System admin authentication is not configured', 503, 'SYSTEM_ADMIN_NOT_CONFIGURED');
+  }
+  email = normalizeAdminEmail(email);
   // Validate credentials
   const isValid = await validateSystemAdminCredentials(email, password);
   
   if (!isValid) {
-    throw new Error('Invalid system admin credentials');
+    throw new AppError('Invalid system admin credentials', 401, 'INVALID_CREDENTIALS');
   }
 
   // Generate token
-  const token = generateSystemAdminToken(email);
+  let token;
+  try {
+    token = generateSystemAdminToken(email);
+  } catch (error) {
+    logger.error('System admin token generation failed', { message: error.message });
+    throw new AppError('System admin sign-in is temporarily unavailable', 503, 'SYSTEM_ADMIN_AUTH_UNAVAILABLE');
+  }
 
   // Return user info (no sensitive data)
   return {
@@ -143,7 +156,11 @@ const refreshSystemAdminToken = async (currentToken) => {
  * @returns {boolean} - True if credentials are configured
  */
 const isSystemAdminConfigured = () => {
-  return !!(process.env.SYSTEM_ADMIN_EMAIL && process.env.SYSTEM_ADMIN_PASSWORD_HASH);
+  return !!(
+    normalizeAdminEmail(process.env.SYSTEM_ADMIN_EMAIL) &&
+    process.env.SYSTEM_ADMIN_PASSWORD_HASH &&
+    (process.env.SYSTEM_ADMIN_JWT_SECRET || process.env.JWT_SECRET)
+  );
 };
 
 /**
