@@ -148,12 +148,10 @@ class SystemAdminService {
     // Archived ("removed") schools stay out of the normal list unless asked for.
     if (status === 'all') {
       filters.archived = 'include';
-      filters.deleted = 'include';
     } else if (status === 'archived') {
       filters.archived = 'only';
     } else if (status === 'deleted') {
       filters.deleted = 'only';
-      filters.archived = 'include';
     } else if (status) {
       filters.isActive = status === 'active';
     }
