@@ -70,14 +70,10 @@ const login = catchAsync(async (req, res) => {
     // Log failed login attempt
     logger.warn(`🚫 System admin login failed: ${email} - ${error.message}`);
 
-    // Authentication failures and server failures need different recovery:
-    // a signing/configuration problem is not evidence of a wrong password.
-    const invalidCredentials = error.code === 'INVALID_CREDENTIALS' || error.message === 'Invalid system admin credentials';
-    const notConfigured = error.code === 'SYSTEM_ADMIN_NOT_CONFIGURED';
-    res.status(invalidCredentials ? 401 : 503).json({
+    res.status(401).json({
       success: false,
-      message: invalidCredentials ? 'Invalid system admin credentials' : notConfigured ? 'System admin not configured' : 'System admin sign-in is temporarily unavailable',
-      code: invalidCredentials ? 'INVALID_CREDENTIALS' : notConfigured ? 'SYSTEM_ADMIN_NOT_CONFIGURED' : 'SYSTEM_ADMIN_AUTH_UNAVAILABLE'
+      message: 'Invalid system admin credentials',
+      code: 'INVALID_CREDENTIALS'
     });
   }
 });
