@@ -6,6 +6,8 @@
 
 const request = require('supertest');
 const express = require('express');
+jest.mock('../../services/systemAdminOperationsService', () => ({ collections: { classes: {}, subjects: {} } }));
+jest.mock('../../services/platformAuditService', () => ({ contextFromRequest: () => ({}) }));
 
 jest.mock('../../utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }));
 

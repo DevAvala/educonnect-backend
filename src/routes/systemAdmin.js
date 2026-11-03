@@ -58,6 +58,7 @@ const { csvUpload } = require('../middleware/csvUpload');
 router.use(requireSystemAdmin);
 router.use(validateCrossSchoolAccess);
 router.use(completeAuditLog);
+router.use(require('./systemAdminOperations'));
 
 // ============================================================================
 // PLATFORM OVERVIEW ENDPOINTS

@@ -355,7 +355,7 @@ const handleCrossSchoolError = async (error, req, res, operation) => {
  */
 const getSchoolManagement = catchAsync(async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, tier } = req.query;
+    const { page = 1, limit = 20, status, tier, search } = req.query;
 
     // Log the operation
     await logSystemAdminActivity(req.user.email, 'school_management_accessed', {
@@ -371,7 +371,8 @@ const getSchoolManagement = catchAsync(async (req, res) => {
       page: parseInt(page),
       limit: parseInt(limit),
       status,
-      tier
+      tier,
+      search
     });
 
     res.status(200).json({
@@ -604,7 +605,7 @@ const getUserManagement = catchAsync(async (req, res) => {
 
     // Get cross-school users data
     const userData = await SystemAdminService.getCrossSchoolUsers(
-      { role, status, schoolId, search },
+      { role, ...(status === 'active' || status === 'inactive' ? { isActive: status === 'active' } : {}), ...(schoolId ? { schoolIds: [schoolId] } : {}), search },
       { page: parseInt(page), limit: parseInt(limit) }
     );
 
