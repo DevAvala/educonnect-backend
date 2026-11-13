@@ -96,6 +96,19 @@ const saveScores = async (req, res) => {
   }
 };
 
+const saveWithScores = async (req, res) => {
+  try {
+    const { id: userId, schoolId } = req.user;
+    const { scores, ...data } = req.body;
+    const entry = await entryService.saveEntryWithScores(userId, schoolId, data, scores, req.params.id || null);
+    return res.status(req.params.id ? 200 : 201).json({ success: true, data: { entry } });
+  } catch (error) {
+    logger.error('Error saving assessment and scores:', error);
+    const expected = error.statusCode || (/not assigned|not found|exceed|policy|componentType/i.test(error.message) ? 400 : 500);
+    return res.status(expected).json({ success: false, message: error.message || 'Failed to save assessment' });
+  }
+};
+
 const gradingActivity = async (req, res) => {
   try {
     const { schoolId } = req.user;
@@ -128,4 +141,6 @@ const subjectScores = async (req, res) => {
   }
 };
 
-module.exports = { list, create, update, remove, saveScores, gradingActivity, subjectScores };
+module.exports = {
+  saveWithScores, list, create, update, remove, saveScores, gradingActivity, subjectScores };
+

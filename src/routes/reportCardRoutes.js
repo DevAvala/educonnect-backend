@@ -12,6 +12,7 @@ const {
   saveTemplate,
   getComments,
   saveComment,
+  getReportCardStatus,
   generateReportCards,
   signOff,
   publishToParents
@@ -36,8 +37,10 @@ router.get('/report-cards/comments', getComments);
 router.put('/report-cards/comments/:studentId', saveComment);
 
 // Report card generate, sign-off, publish
+router.get('/report-cards/status', getReportCardStatus);
 router.post('/report-cards/generate', generateReportCards);
 router.post('/report-cards/sign-off', signOff);
 router.post('/report-cards/publish', publishToParents);
 
 module.exports = router;
+
