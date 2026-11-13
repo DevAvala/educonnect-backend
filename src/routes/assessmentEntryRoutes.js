@@ -7,7 +7,6 @@ const {
   validateUpdateEntry,
   validateEntryId,
   validateSaveScores,
-  validateScoresBody,
   validateGradingActivity,
   validateSubjectScores
 } = require('../middleware/assessmentEntryValidation');
@@ -20,8 +19,6 @@ router.use('/teacher', requireRole(['teacher']));
 
 router.get('/teacher/assessment-entries', validateListEntries, controller.list);
 router.post('/teacher/assessment-entries', validateCreateEntry, controller.create);
-router.post('/teacher/assessment-entries/with-scores', validateCreateEntry, validateScoresBody, controller.saveWithScores);
-router.put('/teacher/assessment-entries/:id/with-scores', validateUpdateEntry, validateScoresBody, controller.saveWithScores);
 router.put('/teacher/assessment-entries/:id', validateUpdateEntry, controller.update);
 router.delete('/teacher/assessment-entries/:id', validateEntryId, controller.remove);
 router.post('/teacher/assessment-entries/:id/scores', validateSaveScores, controller.saveScores);
@@ -34,4 +31,3 @@ router.get('/admin/grading-activity', validateGradingActivity, controller.gradin
 router.get('/admin/grading/subject-scores', validateSubjectScores, controller.subjectScores);
 
 module.exports = router;
-

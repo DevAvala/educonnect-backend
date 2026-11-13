@@ -26,8 +26,8 @@ const formatEntry = (entry) => ({
   }))
 });
 
-const validateTeacherAssignment = async (teacherId, schoolId, className, subjectName, db = prisma) => {
-  const teacher = await db.user.findUnique({
+const validateTeacherAssignment = async (teacherId, schoolId, className, subjectName) => {
+  const teacher = await prisma.user.findUnique({
     where: { id: teacherId },
     select: { classes: true, subjects: true, schoolId: true }
   });
@@ -43,18 +43,18 @@ const validateTeacherAssignment = async (teacherId, schoolId, className, subject
   return teacher;
 };
 
-const getEffectivePolicyForEntry = async (schoolId, className, subjectName, db = prisma) => {
-  const classRecord = await db.class.findFirst({
+const getEffectivePolicyForEntry = async (schoolId, className, subjectName) => {
+  const classRecord = await prisma.class.findFirst({
     where: { schoolId, name: className, isActive: true }
   });
   if (!classRecord) throw new Error('Class not found');
 
-  const subjectRecord = await db.subject.findFirst({
+  const subjectRecord = await prisma.subject.findFirst({
     where: { schoolId, name: subjectName, isActive: true }
   });
   if (!subjectRecord) throw new Error('Subject not found');
 
-  const policy = await db.assessmentPolicy.findFirst({
+  const policy = await prisma.assessmentPolicy.findFirst({
     where: {
       schoolId,
       assignments: {
@@ -71,12 +71,12 @@ const getEffectivePolicyForEntry = async (schoolId, className, subjectName, db =
   return policy;
 };
 
-const getUsedContributionPoints = async (policyComponentId, entryIdToExclude, db = prisma) => {
+const getUsedContributionPoints = async (policyComponentId, entryIdToExclude) => {
   const where = { policyComponentId };
   if (entryIdToExclude) {
     where.id = { not: entryIdToExclude };
   }
-  const entries = await db.assessmentEntry.findMany({
+  const entries = await prisma.assessmentEntry.findMany({
     where,
     select: { contributionPoints: true }
   });
@@ -98,12 +98,12 @@ const listEntries = async (teacherId, schoolId, className, subjectName, termId) 
   return entries.map(formatEntry);
 };
 
-const createEntry = async (teacherId, schoolId, data, db = prisma) => {
+const createEntry = async (teacherId, schoolId, data) => {
   const { policyComponentId, componentType, title, assessmentType, className, subjectName, termId, maxObtainableScore, contributionPoints } = data;
 
-  await validateTeacherAssignment(teacherId, schoolId, className, subjectName, db);
+  await validateTeacherAssignment(teacherId, schoolId, className, subjectName);
 
-  const policy = await getEffectivePolicyForEntry(schoolId, className, subjectName, db);
+  const policy = await getEffectivePolicyForEntry(schoolId, className, subjectName);
 
   let componentMax = 0;
   if (componentType === 'ca') {
@@ -116,14 +116,14 @@ const createEntry = async (teacherId, schoolId, data, db = prisma) => {
     throw new Error('componentType must be ca or exam');
   }
 
-  const used = await getUsedContributionPoints(policyComponentId, undefined, db);
+  const used = await getUsedContributionPoints(policyComponentId);
   if (used + contributionPoints > componentMax) {
     throw new Error(
       `Contribution points exceed component max of ${componentMax}: already used ${used}, trying to add ${contributionPoints}`
     );
   }
 
-  const entry = await db.assessmentEntry.create({
+  const entry = await prisma.assessmentEntry.create({
     data: {
       schoolId,
       policyComponentId,
@@ -144,8 +144,8 @@ const createEntry = async (teacherId, schoolId, data, db = prisma) => {
   return formatEntry(entry);
 };
 
-const updateEntry = async (entryId, teacherId, schoolId, data, db = prisma) => {
-  const existing = await db.assessmentEntry.findFirst({
+const updateEntry = async (entryId, teacherId, schoolId, data) => {
+  const existing = await prisma.assessmentEntry.findFirst({
     where: { id: entryId, createdBy: teacherId, schoolId }
   });
   if (!existing) return { notFound: true };
@@ -160,8 +160,8 @@ const updateEntry = async (entryId, teacherId, schoolId, data, db = prisma) => {
   if (data.maxObtainableScore !== undefined) updateData.maxObtainableScore = data.maxObtainableScore;
 
   if (data.contributionPoints !== undefined) {
-    const used = await getUsedContributionPoints(existing.policyComponentId, entryId, db);
-    const policy = await getEffectivePolicyForEntry(schoolId, existing.className, existing.subjectName, db);
+    const used = await getUsedContributionPoints(existing.policyComponentId, entryId);
+    const policy = await getEffectivePolicyForEntry(schoolId, existing.className, existing.subjectName);
 
     let componentMax = 0;
     if (existing.componentType === 'ca') {
@@ -180,7 +180,7 @@ const updateEntry = async (entryId, teacherId, schoolId, data, db = prisma) => {
     updateData.contributionPoints = data.contributionPoints;
   }
 
-  const entry = await db.assessmentEntry.update({
+  const entry = await prisma.assessmentEntry.update({
     where: { id: entryId },
     data: updateData,
     include: { scores: { include: { student: { select: { id: true, firstName: true, lastName: true } } } } }
@@ -201,30 +201,37 @@ const deleteEntry = async (entryId, teacherId, schoolId) => {
   return { deleted: true };
 };
 
-const saveScores = async (entryId, teacherId, schoolId, scores, transaction = null) => {
-  const execute = async db => {
-    const entry = await db.assessmentEntry.findFirst({ where: { id: entryId, createdBy: teacherId, schoolId } });
-    if (!entry) return { notFound: true };
-    for (const score of scores) {
-      if (!Number.isFinite(Number(score.scoreObtained)) || Number(score.scoreObtained) < 0 || Number(score.scoreObtained) > entry.maxObtainableScore) {
-        return { validationError: `Score for student ${score.studentId} must be between 0 and ${entry.maxObtainableScore}` };
+const saveScores = async (entryId, teacherId, schoolId, scores) => {
+  const entry = await prisma.assessmentEntry.findFirst({
+    where: { id: entryId, createdBy: teacherId, schoolId }
+  });
+  if (!entry) return { notFound: true };
+
+  await prisma.assessmentScore.deleteMany({ where: { entryId } });
+
+  if (scores.length > 0) {
+    for (const s of scores) {
+      if (s.scoreObtained < 0 || s.scoreObtained > entry.maxObtainableScore) {
+        return { validationError: `Score for student ${s.studentId} must be between 0 and ${entry.maxObtainableScore}` };
       }
     }
-    await db.assessmentScore.deleteMany({ where: { entryId } });
-    if (scores.length) await db.assessmentScore.createMany({ data: scores.map(s => ({ entryId, studentId: s.studentId, scoreObtained: Number(s.scoreObtained) })) });
-    const updated = await db.assessmentEntry.findUnique({ where: { id: entryId }, include: { scores: { include: { student: { select: { id: true, firstName: true, lastName: true } } } } } });
-    return formatEntry(updated);
-  };
-  return transaction ? execute(transaction) : prisma.$transaction(execute);
-};
 
-const saveEntryWithScores = async (teacherId, schoolId, data, scores, entryId = null) => prisma.$transaction(async tx => {
-  const entry = entryId ? await updateEntry(entryId, teacherId, schoolId, data, tx) : await createEntry(teacherId, schoolId, data, tx);
-  if (entry.notFound || entry.cannotChange) throw Object.assign(new Error(entry.notFound ? 'Entry not found' : 'Cannot change assessment scope'), { statusCode: entry.notFound ? 404 : 400 });
-  const saved = await saveScores(entry.id, teacherId, schoolId, scores, tx);
-  if (saved.validationError) throw Object.assign(new Error(saved.validationError), { statusCode: 400 });
-  return saved;
-});
+    await prisma.assessmentScore.createMany({
+      data: scores.map(s => ({
+        entryId,
+        studentId: s.studentId,
+        scoreObtained: s.scoreObtained
+      }))
+    });
+  }
+
+  const updated = await prisma.assessmentEntry.findUnique({
+    where: { id: entryId },
+    include: { scores: { include: { student: { select: { id: true, firstName: true, lastName: true } } } } }
+  });
+
+  return formatEntry(updated);
+};
 
 const getGradingActivity = async (schoolId, className, armName, subjectName, termId) => {
   const classRecord = await prisma.class.findFirst({
@@ -474,7 +481,6 @@ const getSubjectScores = async (schoolId, className, armName, subjectName, termI
 };
 
 module.exports = {
-  saveEntryWithScores,
   listEntries,
   createEntry,
   updateEntry,
@@ -483,4 +489,3 @@ module.exports = {
   getGradingActivity,
   getSubjectScores
 };
-

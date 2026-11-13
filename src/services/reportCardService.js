@@ -543,21 +543,6 @@ const generateReportCards = async (schoolId, armId, termId) => {
   return job;
 };
 
-// Recover the authoritative release state and latest generation job for this scope.
-const getReportCardStatus = async (schoolId, armId, termId) => {
-  const [publication, job] = await Promise.all([
-    prisma.reportCardPublication.findUnique({ where: { schoolId_armId_termId: { schoolId, armId, termId } } }),
-    prisma.pdfJob.findFirst({
-      where: { schoolId, type: 'report_card', AND: [
-        { metadata: { path: ['armId'], equals: armId } },
-        { metadata: { path: ['termId'], equals: termId } },
-      ] },
-      orderBy: { createdAt: 'desc' },
-    }),
-  ]);
-  return { signedOff: Boolean(publication?.signedOff), released: Boolean(publication?.released), job: job ? { jobId: job.id, status: job.status, progress: job.progress, downloadUrl: job.downloadUrl } : null };
-};
-
 // ===== REPORT CARD SIGN-OFF =====
 
 const signOff = async (schoolId, armId, termId, userId) => {
@@ -625,7 +610,6 @@ const publishToParents = async (schoolId, armId, termId, userId, studentIds) => 
 };
 
 module.exports = {
-  getReportCardStatus,
   getPublishStatus,
   publishResults,
   createPdfJob,
@@ -641,4 +625,3 @@ module.exports = {
   processPdfJob,
   compileStudentScores
 };
-

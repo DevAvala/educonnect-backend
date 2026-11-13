@@ -70,15 +70,7 @@ const validateSubjectScores = [
   handleValidationErrors
 ];
 
-const validateScoresBody = [
-  body('scores').isArray().withMessage('scores must be an array'),
-  body('scores.*.studentId').notEmpty().withMessage('Each score must have a studentId'),
-  body('scores.*.scoreObtained').isFloat({ min: 0 }).withMessage('Each scoreObtained must be >= 0'),
-  handleValidationErrors
-];
-
 module.exports = {
-  validateScoresBody,
   validateListEntries,
   validateCreateEntry,
   validateUpdateEntry,
@@ -87,4 +79,3 @@ module.exports = {
   validateGradingActivity,
   validateSubjectScores
 };
-

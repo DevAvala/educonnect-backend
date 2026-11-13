@@ -1,18 +1,6 @@
 const reportCardService = require('../services/reportCardService');
 const logger = require('../utils/logger');
 
-const getReportCardStatus = async (req, res) => {
-  try {
-    const { armId, termId } = req.query;
-    if (!armId || !termId) return res.status(400).json({ success: false, message: 'armId and termId are required' });
-    const data = await reportCardService.getReportCardStatus(req.user.schoolId, armId, termId);
-    return res.json({ success: true, data });
-  } catch (error) {
-    logger.error('Error fetching report card status:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch report card status' });
-  }
-};
-
 // ===== RESULT PUBLISHING =====
 
 const getPublishStatus = async (req, res) => {
@@ -229,7 +217,6 @@ const publishToParents = async (req, res) => {
 };
 
 module.exports = {
-  getReportCardStatus,
   getPublishStatus,
   publishResults,
   generatePdfs,
@@ -243,4 +230,3 @@ module.exports = {
   signOff,
   publishToParents
 };
-
